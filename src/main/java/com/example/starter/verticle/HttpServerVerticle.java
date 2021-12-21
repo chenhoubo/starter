@@ -18,6 +18,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.ext.web.handler.StaticHandler;
+import io.vertx.redis.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,10 +89,11 @@ public class HttpServerVerticle extends AbstractVerticle {
     baseRouter = Router.router(vertx);
     baseRouter.route().handler(CorsHandler.create("*").allowedMethods(allowedMethods).allowedHeaders(allowedHeaders).allowCredentials(true));
     baseRouter.route().handler(BodyHandler.create().setBodyLimit(1024 * 1024 * 200));
-    baseRouter.post("/test").handler(ar ->{
+    baseRouter.post("/test").handler(ar -> {
       System.out.println("111");
     });
     baseRouter.post("/api/:apiName/:operation").handler(this::handleCommonApi);
+    baseRouter.post("/redis/:apiName/:key").handler(this::handleRedisApi);
     baseRouter.errorHandler(HttpStatus.FAIL.code(), routingContext -> {
       Throwable failure = routingContext.failure();
       String errorMessage = failure.getMessage();
@@ -109,7 +111,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     HttpServer httpServer = vertx.createHttpServer(options);
     httpServer.requestHandler(baseRouter);
     httpServer.listen(
-      runtimeConfig.getServerPort(),"127.0.0.1",
+      runtimeConfig.getServerPort(), "127.0.0.1",
       result -> {
         if (result.succeeded()) {
           logger.info("HTTP server started on port :" + runtimeConfig.getServerPort());
@@ -127,7 +129,12 @@ public class HttpServerVerticle extends AbstractVerticle {
   }
 
   <T> void returnJson(RoutingContext context, String msg, T data, int code, Boolean successFlag) {
-    returnJsonObject(context, new JsonObject().put("msg", msg).put("flag", successFlag).put("code", code).put("data", data), code);
+    if(data instanceof Response){
+      String d = ((Response) data).toBuffer().toString();
+      returnJsonObject(context, new JsonObject().put("msg", msg).put("flag", successFlag).put("code", code).put("data", d), code);
+    }else {
+      returnJsonObject(context, new JsonObject().put("msg", msg).put("flag", successFlag).put("code", code).put("data", data), code);
+    }
   }
 
   void returnJsonObject(RoutingContext context, JsonObject jsonObject, int code) {
@@ -156,10 +163,20 @@ public class HttpServerVerticle extends AbstractVerticle {
     if (body.getString("dbId") == null || body.getString("dbId").equals("")) {
       body.put("dbId", HandlerCode.STARTER_DB);
       handlerManager = HandlerManager.getInstance().getHandler(HandlerCode.STARTER_DB);
-    }else {
+    } else {
       handlerManager = HandlerManager.getInstance().getHandler(body.getInteger("dbId"));
     }
-    operationResult = handlerManager.baseHandler(apiName, operation, body);
+    operationResult = handlerManager.dbHandler(apiName, operation, body);
+    handleAsyncResult(context, operationResult);
+  }
+
+  void handleRedisApi(RoutingContext context) {
+    String apiName = context.pathParam("apiName");
+    String operation = context.pathParam("key");
+    JsonObject body = context.getBodyAsJson();
+    InterHandler handlerManager = HandlerManager.getInstance().getHandler(HandlerCode.REDIS_DB);
+    Future<Response> operationResult = null;
+    operationResult = handlerManager.redisHandler(apiName, operation, body);
     handleAsyncResult(context, operationResult);
   }
 

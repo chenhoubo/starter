@@ -7,10 +7,10 @@ import com.example.starter.message.cs.DemoRequest;
 import com.example.starter.message.imp.AbstractUpMessage;
 import com.example.starter.message.sc.DemoResponse;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.VertxException;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
+import io.vertx.redis.client.Response;
 
 public class MysqlDbHandler implements InterHandler {
   @Override
@@ -35,8 +35,7 @@ public class MysqlDbHandler implements InterHandler {
   }
 
   @Override
-  public Future<JsonObject> baseHandler(String tableName, String operation, JsonObject params) {
-    Promise<JsonObject> resultPromise = Promise.promise();
+  public Future<JsonObject> dbHandler(String tableName, String operation, JsonObject params) {
     Integer dbId = params.getInteger("dbId");
     params.remove("dbId");
     PlayerDao playerDao = Configure.getInstance().getDaoManager(dbId).getPlayerDao();
@@ -58,13 +57,18 @@ public class MysqlDbHandler implements InterHandler {
         operationResult = playerDao.findById(tableName, params.getLong("id"));
         break;
       default:
-        String sql = "select * from user;";
-        playerDao.queryList(sql, res -> {
-          System.out.println(res.result());
-        });
+//        String sql = "select * from user;";
+//        playerDao.queryList(sql, res -> {
+//          System.out.println(res.result());
+//        });
         operationResult = Future.failedFuture(new VertxException("Doesn't support this operation!"));
     }
     return operationResult;
+  }
+
+  @Override
+  public Future<Response> redisHandler(String apiName, String key, JsonObject params) {
+    return null;
   }
 
 }
