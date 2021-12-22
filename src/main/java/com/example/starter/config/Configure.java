@@ -5,6 +5,7 @@ import com.example.starter.constants.HandlerCode;
 import com.example.starter.db.MySQLUtil;
 import com.example.starter.db.dao.DaoManager;
 import com.example.starter.handler.MysqlDbHandler;
+import com.example.starter.handler.RedisDbHandler;
 import com.example.starter.handler.imp.HandlerManager;
 import com.example.starter.handler.imp.InterHandler;
 import com.example.starter.redis.RedisPool;
@@ -57,15 +58,17 @@ public class Configure extends AbstractVerticle {
     initHandler();
     loadConfig();
     initDb();
-//    initRedis();
+    initRedis();
 //    initHttp();
     return ourInstance;
   }
 
   private void initHandler() {
     MysqlDbHandler mysqlDbHandler = new MysqlDbHandler();
+    RedisDbHandler redisDbHandler = new RedisDbHandler();
     HandlerManager.getInstance().addHandler(HandlerCode.STARTER_DB, mysqlDbHandler);
     HandlerManager.getInstance().addHandler(HandlerCode.TEST_DB, mysqlDbHandler);
+    HandlerManager.getInstance().addHandler(HandlerCode.REDIS_DB, redisDbHandler);
     System.out.println("initHandler");
   }
 
